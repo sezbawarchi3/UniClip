@@ -69,6 +69,17 @@ const deviceList = $('device-list');
 const leaveBtn = $('leave-btn');
 
 //REPLICATING THE CLIP LENGTH FROM THE SERVER
+const MAX_CLIP_BYTES = 5 * 1024 * 1024; // 5 MB
+
+const syncBtn = $('sync-btn');
+const sendTextBtn = $('send-text-btn');
+const clipInput = $('clip-input');
+const clipStatus = $('clip-status');
+const receivedEmpty = $('received-empty');
+const receivedBox = $('received-box');
+const receivedText = $('received-text');
+const receivedNote = $('received-note');
+const copyReceivedBtn = $('copy-received-btn')
 
 // 3. UI HELPERS
 
@@ -78,6 +89,7 @@ function setStatus(kind, text) {
 }
 
 function showHome(errorMessage = '') {
+  resetClipUI(); // addition: clear old clipboard text when we leave / fail to rejoin
   sessionView.hidden = true;
   homeView.hidden = false;
   homeError.textContent = errorMessage;
@@ -111,6 +123,28 @@ function renderDevices(devices) {
     deviceList.appendChild(li);
   }
 }
+
+function setClipStatus(message, isError = false) {
+  clipStatus.textContent = message;
+  clipStatus.className = isError ? 'status status--error' : 'status';
+}
+ 
+function showReceived(text, note) {
+  receivedText.textContent = text; // textContent, never innerHTML (text comes from another device)
+  receivedNote.textContent = note;
+  receivedEmpty.hidden = true;
+  receivedBox.hidden = false;
+}
+ 
+function resetClipUI() {
+  clipInput.value = '';
+  setClipStatus('');
+  receivedText.textContent = '';
+  receivedNote.textContent = '';
+  receivedBox.hidden = true;
+  receivedEmpty.hidden = false;
+}
+
 
 // 4. SOCKET CONNECTION
 
