@@ -124,6 +124,8 @@ function renderDevices(devices) {
   }
 }
 
+//--------------------Clipboard UI Helpers---------------------
+
 function setClipStatus(message, isError = false) {
   clipStatus.textContent = message;
   clipStatus.className = isError ? 'status status--error' : 'status';
@@ -173,6 +175,101 @@ socket.on('devices:update', (data) => {
   if (data.code !== currentCode) return; // ignore updates for other sessions
   renderDevices(data.devices);
 });
+
+// another device sent us clipboard text.
+socket.on('clip:receive', async (text) => {
+  if (!currentCode) return;             // ignore if we already left the session
+  if (typeof text !== 'string') return; // never trust incoming data
+ 
+  try {
+    await navigator.clipboard.writeText(text);
+    showReceived(text, 'Copied to your clipboard automatically.');
+  } catch (err) {
+    // Blocked (tab not focused, Safari needs a click, no permission, or no HTTPS).
+    showReceived(text, 'Your browser blocked automatic copying. Click "Copy to my clipboard" below.');
+  }
+});
+
+function explainClipboardError(err) {
+  if (!navigator.clipboard) {
+    return 'Clipboard access needs HTTPS or localhost. Use the text box instead.';
+  }
+  if (err && err.name === 'NotAllowedError') {
+    return 'Clipboard permission was denied. Allow it in your browser\'s site settings, or use the text box.';
+  }
+  return 'Could not read the clipboard. Use the text box instead.';
+}
+ 
+function sendClip(text) {
+  if (!currentCode) {
+    setClipStatus('Join a session first.', true);
+    return;
+  }
+  if (!socket.connected) {
+    setClipStatus('You are offline. Wait for the connection to come back.', true);
+    return;
+  }
+  if (text.trim().length === 0) {
+    setClipStatus('Nothing to send: the text is empty.', true);
+    return;
+  }
+  const bytes = new TextEncoder().encode(text).length;
+  if (bytes > MAX_CLIP_BYTES) {
+    setClipStatus(`Too large (${Math.round(bytes / 1024)} KB). The limit is 100 KB.`, true);
+    return;
+  }
+ 
+  setClipStatus('Sending…');
+ 
+  // .timeout(5000): if the server doesn't answer within 5 seconds, `err` is filled in.
+  socket.timeout(5000).emit('clip:send', text, (err, res) => {
+    if (err) {
+      setClipStatus('The server did not respond. Try again.', true);
+      return;
+    }
+    if (!res.ok) {
+      setClipStatus(res.error, true);
+      return;
+    }
+    setClipStatus(
+      res.receivers === 0
+        ? 'Sent, but no other devices are connected yet.'
+        : `Sent to ${res.receivers} other device(s).`
+    );
+  });
+}
+ 
+async function handleSyncClick() {
+  syncBtn.disabled = true; // stop double clicks while a permission prompt may be open
+  try {
+    if (!navigator.clipboard || !navigator.clipboard.readText) {
+      throw new Error('clipboard-unsupported');
+    }
+    const text = await navigator.clipboard.readText();
+    clipInput.value = text; // show what was read, so nothing is sent "invisibly"
+    sendClip(text);
+  } catch (err) {
+    setClipStatus(explainClipboardError(err), true);
+    clipInput.focus(); // point the user to the manual fallback
+  } finally {
+    syncBtn.disabled = false;
+  }
+}
+ 
+syncBtn.addEventListener('click', handleSyncClick);
+sendTextBtn.addEventListener('click', () => sendClip(clipInput.value));
+ 
+copyReceivedBtn.addEventListener('click', async () => {
+  try {
+    await navigator.clipboard.writeText(receivedText.textContent);
+    receivedNote.textContent = 'Copied to your clipboard.';
+  } catch (err) {
+    receivedNote.textContent = 'Copy failed. Select the text above and press Ctrl+C.';
+  }
+});
+ 
+
+
 
 // 5. ACTIONS (create / join / leave)
 
