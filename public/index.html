@@ -1,0 +1,61 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>UniClip</title>
+  <link rel="stylesheet" href="css/styles.css" />
+</head>
+<body>
+  <header class="topbar">
+    <h1>📋 UniClip</h1>
+    <!-- Connection status: JS changes its text and colour -->
+    <span id="status-badge" class="badge badge--connecting">Connecting…</span>
+  </header>
+
+  <main>
+    <!-- VIEW 1: shown when you are NOT in a session -->
+    <section id="home-view" class="card">
+      <h2>Get started</h2>
+
+      <button id="create-btn" class="btn btn--primary">Create new session</button>
+
+      <div class="divider">or</div>
+
+      <form id="join-form">
+        <label for="code-input">Enter a pairing code</label>
+        <input
+          id="code-input"
+          type="text"
+          maxlength="6"
+          placeholder="e.g. K7M2QX"
+          autocomplete="off"
+          autocapitalize="characters"
+          spellcheck="false"
+        />
+        <button type="submit" class="btn">Join session</button>
+      </form>
+
+      <p id="home-error" class="error" role="alert"></p>
+    </section>
+
+    <!-- VIEW 2: shown when you ARE in a session -->
+    <section id="session-view" class="card" hidden>
+      <h2>Session active</h2>
+
+      <p class="label">Pairing code</p>
+      <div id="session-code" class="code">------</div>
+      <p class="hint">Enter this code on your other device to pair.</p>
+
+      <h3>Connected devices (<span id="device-count">0</span>)</h3>
+      <ul id="device-list"></ul>
+
+      <button id="leave-btn" class="btn btn--danger">Leave session</button>
+    </section>
+  </main>
+
+  <!-- This file is provided automatically by the Socket.io server -->
+  <script src="/socket.io/socket.io.js"></script>
+  <script src="js/app.js"></script>
+</body>
+</html>
