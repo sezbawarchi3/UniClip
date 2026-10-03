@@ -6,6 +6,10 @@ const sessions = require('./sessions');
 
 const PORT = process.env.PORT || 3000;
 
+//BONUS: for image transfer
+
+const MAX_CLIP_BYTES = 5 * 1024 * 1024; // 5 MB
+
 const app = express();
 const server = http.createServer(app); // Socket.io needs the raw HTTP server
 const io = new Server(server);
@@ -22,7 +26,7 @@ const cleanName = (raw) => {
 }
 
 const isValidDeviceId = (id) => {
-    return typeof id === 'string' && id.length >= 8 && id.length <= 64;
+    return typeof id == 'string' && id.length >= 8 && id.length <= 64;
 }
 
 
@@ -90,7 +94,7 @@ io.on('connection', (socket) => {
     })
 
      socket.on('session:join', (payload, ack) => {
-        if (typeof ack !== 'function') return;
+        if (typeof ack != 'function') return;
 
         const { code, deviceId, name } = payload || {};
         if (!isValidDeviceId(deviceId)) {
@@ -103,7 +107,7 @@ io.on('connection', (socket) => {
         }
 
         enterSession(socket, session, deviceId, cleanName(name));
-        console.log(`➡️  ${cleanName(name)} joined ${session.code}`);
+        console.log(`->  ${cleanName(name)} joined ${session.code}`);
 
         ack({
             ok: true,
@@ -115,6 +119,41 @@ io.on('connection', (socket) => {
     socket.on('session:leave', () => {
         leaveCurrentSession(socket);
     });
+
+    // here browser sends .emit('clip : send', text, callback), her is a kind of reply by mentioning the callback as ack
+    socket.on('clip:send', (payload, ack) => {
+        const reply = typeof ack === 'function' ? ack : () => {};
+
+        const code = socket.data.code;
+        // here the code sent by the server is considered, never the one sent by the user for better safety
+
+        if(!code){
+            return reply({ok : false, error : 'Join a session first'});
+        }
+
+        if(typeof payload != 'string'){
+            return reply({ok : false, error : 'Clipboard must be Text'})
+        }
+
+        const bytes = Buffer.byteLength(payload, 'utf8');
+        if(bytes > MAX_CLIP_BYTES){
+            return reply({ok : false, error: 'Text is too Large (Limit is 5MB)'});
+        }
+
+        if(payload.trim().length == 0){
+            return reply({ok : false, error : 'Nothing to send; Text is empty'})
+        }
+
+        //for everyone in the session EXCPT the sender
+        socket.to(code).emit('clip : receive', payload);
+
+        // FINALLY without any errors
+
+        const receivers = Math.max(sessions.getDeviceList(code).length - 1, 0);
+        // here size is measured NOT the actual content to keep the clipboard safe
+
+        console.log(`Clip in ${code} : ${bytes} bytes --> ${receivers} devices`)
+    })
 
     socket.on('disconnect', (reason) => {
         console.log(`Socket disconnected: ${socket.id} (${reason})`);

@@ -4,7 +4,7 @@ const CODE_ALPHABET = "ABCDEFGHJKMNPQRSTUVWXYZ23456789"; //Alphabets used in tbe
 const CODE_LENGTH = 6; //Length of verification code
 
 //Regular expression of the code
-const CODE_PATTERN = new RegExp(`^[${CODE_ALPHABET}]{${CODE_LENGTH}}`);
+const CODE_PATTERN = new RegExp(`^[${CODE_ALPHABET}]{${CODE_LENGTH}}$`);
 
 const SESSION_TTL_MS = 30 * 60 * 1000; // 30 minutes
 
@@ -45,7 +45,7 @@ const generateSession = () => {
 
     const session = {
         code,
-        device : new Map(),
+        devices : new Map(), 
         createdAt : Date.now(),
         lastActivity  : Date.now(),
     };                          // session

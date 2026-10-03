@@ -85,3 +85,30 @@ input[type="text"] {
 .badge--connecting   { background: #d69e2e; }
 .badge--connected    { background: #2f9e44; }
 .badge--reconnecting { background: #dd6b20; }
+
+/* ---- Clipboard UI (Phase 2/3) ---- */
+.manual-label { margin-top: 16px; }
+
+textarea {
+  width: 100%;
+  padding: 10px;
+  margin-bottom: 10px;
+  font: inherit;
+  border: 1px solid #c5ccd3;
+  border-radius: 8px;
+  resize: vertical;
+}
+
+.status { min-height: 1.2em; margin: 8px 0 0; font-size: 0.9rem; color: #52606d; }
+.status--error { color: #b91c1c; }
+
+#received-box pre {
+  margin: 0 0 8px;
+  padding: 10px;
+  background: #f4f6f8;
+  border-radius: 8px;
+  white-space: pre-wrap;   /* keep line breaks, but wrap long lines */
+  word-break: break-word;
+  max-height: 200px;
+  overflow: auto;
+}
