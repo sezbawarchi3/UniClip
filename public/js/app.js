@@ -68,6 +68,8 @@ const deviceCount = $('device-count');
 const deviceList = $('device-list');
 const leaveBtn = $('leave-btn');
 
+//REPLICATING THE CLIP LENGTH FROM THE SERVER
+
 // 3. UI HELPERS
 
 function setStatus(kind, text) {
