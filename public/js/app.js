@@ -69,17 +69,18 @@ const deviceList = $('device-list');
 const leaveBtn = $('leave-btn');
 
 //REPLICATING THE CLIP LENGTH FROM THE SERVER
-const MAX_CLIP_BYTES = 5 * 1024 * 1024; // 5 MB
+const MAX_CLIP_BYTES = 100 * 1024; // 100 KB
+
+const myPublicId = deviceId.slice(0, 8); // short version of our id, for display in the device list
 
 const syncBtn = $('sync-btn');
 const sendTextBtn = $('send-text-btn');
 const clipInput = $('clip-input');
 const clipStatus = $('clip-status');
-const receivedEmpty = $('received-empty');
-const receivedBox = $('received-box');
-const receivedText = $('received-text');
-const receivedNote = $('received-note');
-const copyReceivedBtn = $('copy-received-btn')
+const historyEmpty = $('history-empty');
+const historyList = $('history-list');
+const clearHistoryBtn = $('clear-history-btn');
+
 
 // 3. UI HELPERS
 
@@ -130,23 +131,151 @@ function setClipStatus(message, isError = false) {
   clipStatus.textContent = message;
   clipStatus.className = isError ? 'status status--error' : 'status';
 }
+
+//--------History UI Helpers-----------------
+// `entries` is our local copy of the shared history: Map<id, entry>.
+// Using the id as the key is what prevents duplicates: the same id can only exist once.
+const entries = new Map();
  
-function showReceived(text, note) {
-  receivedText.textContent = text; // textContent, never innerHTML (text comes from another device)
-  receivedNote.textContent = note;
-  receivedEmpty.hidden = true;
-  receivedBox.hidden = false;
+// Never trust data coming from the network: check the shape before using it.
+function isValidEntry(e) {
+  return Boolean(e) && typeof e === 'object'
+    && typeof e.id === 'string'
+    && typeof e.text === 'string'
+    && typeof e.senderId === 'string'
+    && typeof e.senderName === 'string'
+    && Number.isInteger(e.seq)
+    && Number.isFinite(e.timestamp);
 }
  
+// Add one entry. Returns false if we already had it (a duplicate), true if it is new.
+function addEntry(entry) {
+  if (entries.has(entry.id)) return false;
+  entries.set(entry.id, entry);
+  return true;
+}
+ 
+function removeEntries(ids) {
+  for (const id of ids) entries.delete(id);
+}
+ 
+// Replace EVERYTHING with the server's list (used when we join, and after a reconnect).
+// Replacing instead of appending is why a reconnect can never create duplicates.
+function applySnapshot(list) {
+  entries.clear();
+  if (Array.isArray(list)) {
+    for (const entry of list) {
+      if (isValidEntry(entry)) addEntry(entry);
+    }
+  }
+  renderHistory();
+}
+ 
+// Draw the whole list from `entries`, newest first (highest seq on top).
+function renderHistory() {
+  const sorted = [...entries.values()].sort((a, b) => b.seq - a.seq);
+  historyEmpty.hidden = sorted.length > 0;
+  clearHistoryBtn.hidden = sorted.length === 0;
+  historyList.replaceChildren(...sorted.map(makeEntryItem));
+}
+ 
+// Builds the <li> for one entry. Everything that came from the network goes in
+// through textContent / href (never innerHTML), so it cannot run as HTML or script.
+function makeEntryItem(entry) {
+  const li = document.createElement('li');
+  li.className = 'entry';
+ 
+  const meta = document.createElement('div');
+  meta.className = 'entry__meta';
+ 
+  const safeUrl = getSafeUrl(entry.text); // from utils.js: a clean http(s) URL, or null
+  if (safeUrl) {
+    li.classList.add('entry--link');
+    const badge = document.createElement('span');
+    badge.className = 'entry__badge';
+    badge.textContent = 'Link';
+    meta.appendChild(badge);
+  }
+ 
+  const who = entry.senderId === myPublicId ? 'you' : entry.senderName;
+  meta.append(`${who} · ${formatTime(entry.timestamp)}`);
+ 
+  const body = document.createElement('div');
+  body.className = 'entry__text';
+  if (safeUrl) {
+    const link = document.createElement('a');
+    link.href = safeUrl;
+    link.target = '_blank';
+    link.rel = 'noopener noreferrer'; // the opened page gets no access to ours
+    link.textContent = entry.text.trim();
+    body.appendChild(link);
+  } else {
+    body.textContent = entry.text;
+  }
+ 
+  const actions = document.createElement('div');
+  actions.className = 'entry__actions';
+ 
+  const copyBtn = document.createElement('button');
+  copyBtn.className = 'btn';
+  copyBtn.textContent = 'Copy';
+  copyBtn.addEventListener('click', () => copyEntry(entry));
+ 
+  const deleteBtn = document.createElement('button');
+  deleteBtn.className = 'btn btn--danger';
+  deleteBtn.textContent = 'Delete';
+  deleteBtn.addEventListener('click', () => deleteEntry(entry));
+ 
+  actions.append(copyBtn, deleteBtn);
+  li.append(meta, body, actions);
+  return li;
+}
+ 
+// Copy an old entry back to this device's clipboard (a click = allowed by the browser).
+async function copyEntry(entry) {
+  try {
+    await navigator.clipboard.writeText(entry.text);
+    setClipStatus(`Copied: ${makePreview(entry.text)}`);
+  } catch (err) {
+    setClipStatus('Copy failed. Check clipboard permission, or select the text and press Ctrl+C.', true);
+  }
+}
+ 
+// Ask the server to delete one entry. We do NOT remove it from the screen here:
+// the server answers by broadcasting 'clip:deleted' to everyone (us included),
+// so there is exactly one place that updates the screen.
+function deleteEntry(entry) {
+  socket.timeout(5000).emit('clip:delete', { id: entry.id }, (err, res) => {
+    if (err) {
+      setClipStatus('The server did not respond. Try again.', true);
+      return;
+    }
+    if (!res.ok) {
+      setClipStatus(res.error, true);
+    }
+  });
+}
+ 
+clearHistoryBtn.addEventListener('click', () => {
+  if (!window.confirm('Clear the history on ALL devices in this session?')) return;
+  socket.timeout(5000).emit('clip:clear', {}, (err, res) => {
+    if (err) {
+      setClipStatus('The server did not respond. Try again.', true);
+      return;
+    }
+    if (!res.ok) {
+      setClipStatus(res.error, true);
+    }
+  });
+});
+ 
+// Used by showHome(): forget everything when we leave a session.
 function resetClipUI() {
   clipInput.value = '';
   setClipStatus('');
-  receivedText.textContent = '';
-  receivedNote.textContent = '';
-  receivedBox.hidden = true;
-  receivedEmpty.hidden = false;
+  entries.clear();
+  renderHistory();
 }
-
 
 // 4. SOCKET CONNECTION
 
@@ -177,18 +306,38 @@ socket.on('devices:update', (data) => {
 });
 
 // another device sent us clipboard text.
-socket.on('clip:receive', async (text) => {
-  if (!currentCode) return;             // ignore if we already left the session
-  if (typeof text !== 'string') return; // never trust incoming data
+socket.on('clip:added', async (data) => {
+  if (!currentCode || !data) return;       // ignore if we already left the session
+  if (!isValidEntry(data.entry)) return;   // never trust incoming data
  
+  const entry = data.entry;
+  const isNew = addEntry(entry);           // false = we already had this id (duplicate)
+  if (Array.isArray(data.evicted)) removeEntries(data.evicted); // dropped by the server's size caps
+  renderHistory();
+ 
+  // Auto-copy only NEW items that came from ANOTHER device.
+  if (!isNew || entry.senderId === myPublicId) return;
   try {
-    await navigator.clipboard.writeText(text);
-    showReceived(text, 'Copied to your clipboard automatically.');
+    await navigator.clipboard.writeText(entry.text);
+    setClipStatus(`Copied from ${entry.senderName}: ${makePreview(entry.text)}`);
   } catch (err) {
     // Blocked (tab not focused, Safari needs a click, no permission, or no HTTPS).
-    showReceived(text, 'Your browser blocked automatic copying. Click "Copy to my clipboard" below.');
+    setClipStatus(`New item from ${entry.senderName}. Auto-copy was blocked: press Copy on it below.`, true);
   }
 });
+ 
+socket.on('clip:deleted', (data) => {
+  if (!currentCode || !data || !Array.isArray(data.ids)) return;
+  removeEntries(data.ids);
+  renderHistory();
+});
+ 
+socket.on('clip:cleared', () => {
+  if (!currentCode) return;
+  entries.clear();
+  renderHistory();
+});
+
 
 function explainClipboardError(err) {
   if (!navigator.clipboard) {
@@ -222,7 +371,7 @@ function sendClip(text) {
   setClipStatus('Sending…');
  
   // .timeout(5000): if the server doesn't answer within 5 seconds, `err` is filled in.
-  socket.timeout(5000).emit('clip:send', text, (err, res) => {
+  socket.timeout(5000).emit('clip:send', { id: generateId(), text }, (err, res) => {
     if (err) {
       setClipStatus('The server did not respond. Try again.', true);
       return;
@@ -283,6 +432,7 @@ function handleSessionResponse(res) {
   currentCode = res.code;
   showSession(res.code);
   renderDevices(res.devices);
+  applySnapshot(res.entries); // show the existing history (also after a reconnect)
 }
 
 function joinSession(code) {

@@ -102,13 +102,39 @@ textarea {
 .status { min-height: 1.2em; margin: 8px 0 0; font-size: 0.9rem; color: #52606d; }
 .status--error { color: #b91c1c; }
 
-#received-box pre {
-  margin: 0 0 8px;
+/* ---- History (Phase 4/5) ---- */
+.history-header { display: flex; align-items: center; justify-content: space-between; margin-top: 16px; }
+.history-header h3 { margin: 0; }
+.btn--small { width: auto; padding: 6px 12px; font-size: 0.85rem; margin-top: 0; }
+
+#history-list { list-style: none; padding: 0; margin: 8px 0 0; }
+
+.entry {
   padding: 10px;
-  background: #f4f6f8;
+  margin-bottom: 8px;
+  border: 1px solid #e1e5ea;
   border-radius: 8px;
+  background: #fafbfc;
+}
+.entry--link { border-left: 4px solid #2563eb; }
+
+.entry__meta { font-size: 0.8rem; color: #7b8794; margin-bottom: 4px; }
+.entry__badge {
+  display: inline-block;
+  margin-right: 6px;
+  padding: 1px 6px;
+  border-radius: 999px;
+  background: #2563eb;
+  color: #fff;
+  font-size: 0.7rem;
+}
+
+.entry__text {
   white-space: pre-wrap;   /* keep line breaks, but wrap long lines */
   word-break: break-word;
-  max-height: 200px;
+  max-height: 7.5em;       /* long text scrolls instead of stretching the page */
   overflow: auto;
 }
+
+.entry__actions { display: flex; gap: 8px; margin-top: 8px; }
+.entry__actions .btn { width: auto; padding: 6px 12px; font-size: 0.85rem; }
