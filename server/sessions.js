@@ -1,4 +1,5 @@
 const crypto = require('crypto'); //initialising crypto module
+const {createHistory} = require ('./history');
 
 const CODE_ALPHABET = "ABCDEFGHJKMNPQRSTUVWXYZ23456789"; //Alphabets used in tbe expression of the code used to link
 const CODE_LENGTH = 6; //Length of verification code
@@ -45,10 +46,11 @@ const generateSession = () => {
 
     const session = {
         code,
-        devices : new Map(), 
+        devices : new Map(),
+        history : createHistory(), // use of const {createhistory} from line2
         createdAt : Date.now(),
         lastActivity  : Date.now(),
-    };                          // session
+    };    // session
 
 
 
@@ -56,6 +58,10 @@ const generateSession = () => {
     return session;
 
 }
+
+//the short, public version of a deviceId (the full id stays private).
+const publicIdOf = (deviceId) => deviceId.slice(0, 8);
+
 
 
 const getSession = (input) => {
@@ -103,11 +109,29 @@ const getDeviceList = (code) => {
     return [...session.devices.values()] // makes a array for of the values of the map of devices
         .sort((a, b) => a.joinedAt - b.joinedAt) // sorts the array in ascending order of the time of joining
         .map((d) => ({
-        publicId: d.deviceId.slice(0, 8), //slices the first 8 characters of the deviceId to make it public
+        publicId: publicIdOf(d.deviceId), //slices the first 8 characters of the deviceId to make it public // ADDITION of publicIdOf function. does the same work
         name: d.name,
         joinedAt: d.joinedAt,
         }));
 }
+
+
+///---------- History Helpers ----------
+
+// The clipboard history object of a session (or null if the session is gone).
+const getHistory = (code) => {
+    const session = sessions.get(code);
+    return session ? session.history : null;
+}
+ 
+// One device record { deviceId, name, socketId, joinedAt } (or null).
+// The server uses this to learn WHO is sending, so it never trusts a name from the browser.
+const getDevice = (code, deviceId) => {
+    const session = sessions.get(code);
+    if (!session) return null;
+    return session.devices.get(deviceId) || null;
+}
+
 
 // ---------- Cleanup ----------
 // Every minute, delete sessions that are empty AND have been idle too long.
@@ -128,4 +152,7 @@ module.exports = {
   addDevice,
   removeDevice,
   getDeviceList,
+  publicIdOf,
+  getHistory,
+  getDevice,
 };

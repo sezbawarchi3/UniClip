@@ -3,13 +3,12 @@ const http = require('http');
 const express = require('express');
 const { Server } = require('socket.io');
 const sessions = require('./sessions');
+const { isValidEntryId } = require('./history');
 
 const PORT = process.env.PORT || 3000;
 
-//BONUS: for image transfer
-
-const MAX_CLIP_BYTES = 5 * 1024 * 1024; // 5 MB
-
+// const MAX_CLIP_BYTES = 5 * 1024 * 1024; // 5 MB
+// we commented the max bytes because this now lives in history and can ONLY be accessed from there.
 const app = express();
 const server = http.createServer(app); // Socket.io needs the raw HTTP server
 const io = new Server(server);
@@ -29,6 +28,9 @@ const isValidDeviceId = (id) => {
     return typeof id == 'string' && id.length >= 8 && id.length <= 64;
 }
 
+
+// if the browser sent no callback, use a do-nothing function so reply() never crashes.
+const safeAck = (ack) => (typeof ack === 'function' ? ack : () => {});
 
 //list of all connected devices in the socket room, through code
 const broadcastDevices = (code) => {
@@ -90,6 +92,7 @@ io.on('connection', (socket) => {
             ok: true,
             code: session.code,
             devices: sessions.getDeviceList(session.code),
+            entries: session.history.list(), // existing history (empty for a new session)
         });
     })
 
@@ -113,6 +116,7 @@ io.on('connection', (socket) => {
             ok: true,
             code: session.code,
             devices: sessions.getDeviceList(session.code),
+            entries: session.history.list(), // late joiners / reconnects get the full history
         });
     });
 
@@ -120,43 +124,95 @@ io.on('connection', (socket) => {
         leaveCurrentSession(socket);
     });
 
-    // here browser sends .emit('clip : send', text, callback), her is a kind of reply by mentioning the callback as ack
+
+    // Browser sends: socket.emit('clip:send', { id, text }, callback)
     socket.on('clip:send', (payload, ack) => {
-        const reply = typeof ack === 'function' ? ack : () => {};
+        const reply = safeAck(ack);
 
+        // Use the room the SERVER recorded for this socket, never one sent by the client.
         const code = socket.data.code;
-        // here the code sent by the server is considered, never the one sent by the user for better safety
-
-        if(!code){
-            return reply({ok : false, error : 'Join a session first'});
+        if (!code) {
+            return reply({ ok: false, error: 'Join a session first.' });
         }
 
-        if(typeof payload != 'string'){
-            return reply({ok : false, error : 'Clipboard must be Text'})
+        if (typeof payload !== 'object' || payload === null) {
+            return reply({ ok: false, error: 'Invalid clipboard message.' });
         }
 
-        const bytes = Buffer.byteLength(payload, 'utf8');
-        if(bytes > MAX_CLIP_BYTES){
-            return reply({ok : false, error: 'Text is too Large (Limit is 5MB)'});
+        const history = sessions.getHistory(code);
+        const device = sessions.getDevice(code, socket.data.deviceId);
+        if (!history || !device) {
+            return reply({ ok: false, error: 'Session not found. Rejoin and try again.' });
         }
 
-        if(payload.trim().length == 0){
-            return reply({ok : false, error : 'Nothing to send; Text is empty'})
+        // history.add() checks the id, the text type, the size (in bytes) and "empty",
+        // gives the entry its seq number, and ignores duplicate ids.
+        // WHO sent it comes from the server's own records, NOT from the payload,
+        // so a browser cannot pretend to be another device.
+        const result = history.add({
+            id: payload.id,
+            text: payload.text,
+            senderId: sessions.publicIdOf(device.deviceId),
+            senderName: device.name,
+        });
+        if (!result.ok) {
+            return reply({ ok: false, error: result.error });
         }
-
-        //for everyone in the session EXCPT the sender
-        socket.to(code).emit('clip:receive', payload);
-
-        // FINALLY without any errors
 
         const receivers = Math.max(sessions.getDeviceList(code).length - 1, 0);
-        // here size is measured NOT the actual content to keep the clipboard safe
 
-        console.log(`Clip in ${code} : ${bytes} bytes --> ${receivers} devices`)
+        // Same id seen before (e.g. a retry): tell the sender "ok", but do NOT broadcast again.
+        if (result.duplicate) {
+            return reply({ ok: true, duplicate: true, receivers });
+        }
 
-        // Answer the sender so its callback runs (otherwise it times out after 5s).
-        reply({ ok: true, receivers });
-    })
+        // Everyone in the room INCLUDING the sender: the history is shared state, and
+        // every screen draws it from this one event. `evicted` = old entries that were
+        // dropped to stay under the size caps, so every screen drops them too.
+        io.to(code).emit('clip:added', { entry: result.entry, evicted: result.evicted });
+
+        // Log only the SIZE, never the content: clipboard data is private.
+        console.log(`Clip #${result.entry.seq} in ${code} : ${Buffer.byteLength(result.entry.text, 'utf8')} bytes --> ${receivers} other device(s)`);
+        reply({ ok: true, duplicate: false, receivers });
+    });
+
+    // Browser sends: socket.emit('clip:delete', { id }, callback)
+    socket.on('clip:delete', (payload, ack) => {
+        const reply = safeAck(ack);
+
+        const code = socket.data.code;
+        if (!code) {
+            return reply({ ok: false, error: 'Join a session first.' });
+        }
+
+        const history = sessions.getHistory(code);
+        const id = payload && payload.id;
+        if (!history || !isValidEntryId(id)) {
+            return reply({ ok: false, error: 'Invalid entry id.' });
+        }
+
+        if (!history.remove(id)) {
+            return reply({ ok: false, error: 'That item no longer exists.' });
+        }
+
+        io.to(code).emit('clip:deleted', { ids: [id] });
+        reply({ ok: true });
+    });
+
+    socket.on('clip:clear', (payload, ack) => {
+        const reply = safeAck(ack);
+
+        const code = socket.data.code;
+        const history = code ? sessions.getHistory(code) : null;
+        if (!history) {
+            return reply({ ok: false, error: 'Join a session first.' });
+        }
+
+        const removed = history.clear();
+        io.to(code).emit('clip:cleared', {});
+        console.log(`History cleared in ${code} (${removed} item(s))`);
+        reply({ ok: true, removed });
+    });
 
     socket.on('disconnect', (reason) => {
         console.log(`Socket disconnected: ${socket.id} (${reason})`);

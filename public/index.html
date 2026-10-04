@@ -59,14 +59,13 @@
       <button id="send-text-btn" class="btn">Send text box</button>
       <p id="clip-status" class="status" role="status"></p>
 
-      <!-- Phase 2/3: text received from another device -->
-      <h3>Received</h3>
-      <p id="received-empty" class="hint">Nothing received yet.</p>
-      <div id="received-box" hidden>
-        <pre id="received-text"></pre>
-        <p id="received-note" class="hint"></p>
-        <button id="copy-received-btn" class="btn">Copy to my clipboard</button>
+      <!-- Phase 4/5: shared clipboard history (newest first) -->
+      <div class="history-header">
+        <h3>History</h3>
+        <button id="clear-history-btn" class="btn btn--small btn--danger" hidden>Clear all</button>
       </div>
+      <p id="history-empty" class="hint">Nothing synced yet.</p>
+      <ul id="history-list"></ul>
 
       <button id="leave-btn" class="btn btn--danger">Leave session</button>
     </section>
@@ -74,6 +73,7 @@
 
   <!-- This file is provided automatically by the Socket.io server -->
   <script src="/socket.io/socket.io.js"></script>
+  <script src="js/utils.js"></script>
   <script src="js/app.js"></script>
 </body>
 </html>
