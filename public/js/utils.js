@@ -38,9 +38,3 @@ function makePreview(text, maxLength = 40) {
   if (chars.length <= maxLength) return oneLine;
   return chars.slice(0, maxLength - 1).join('') + '…';
 }
-
-// In the browser `module` doesn't exist, so this does nothing there.
-// In Node (our tests) it lets us require() this file.
-if (typeof module !== 'undefined' && module.exports) {
-  module.exports = { getSafeUrl, formatTime, makePreview };
-}

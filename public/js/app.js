@@ -1,11 +1,4 @@
-// public/js/app.js
 
-// 1. DEVICE IDENTITY
-
-
-// Testing trick: two tabs in the SAME browser share localStorage, so they'd
-// have the same deviceId and count as ONE device. Adding ?as=2 to the URL
-// gives that tab its own separate identity.
 const params = new URLSearchParams(window.location.search);
 const profile = params.get('as');
 const STORAGE_KEY = 'clipsync-deviceId' + (profile ? `-${profile}` : '');
@@ -407,18 +400,6 @@ async function handleSyncClick() {
  
 syncBtn.addEventListener('click', handleSyncClick);
 sendTextBtn.addEventListener('click', () => sendClip(clipInput.value));
- 
-copyReceivedBtn.addEventListener('click', async () => {
-  try {
-    await navigator.clipboard.writeText(receivedText.textContent);
-    receivedNote.textContent = 'Copied to your clipboard.';
-  } catch (err) {
-    receivedNote.textContent = 'Copy failed. Select the text above and press Ctrl+C.';
-  }
-});
- 
-
-
 
 // 5. ACTIONS (create / join / leave)
 
