@@ -145,7 +145,7 @@ io.on('connection', (socket) => {
         }
 
         //for everyone in the session EXCPT the sender
-        socket.to(code).emit('clip : receive', payload);
+        socket.to(code).emit('clip:receive', payload);
 
         // FINALLY without any errors
 
@@ -153,6 +153,9 @@ io.on('connection', (socket) => {
         // here size is measured NOT the actual content to keep the clipboard safe
 
         console.log(`Clip in ${code} : ${bytes} bytes --> ${receivers} devices`)
+
+        // Answer the sender so its callback runs (otherwise it times out after 5s).
+        reply({ ok: true, receivers });
     })
 
     socket.on('disconnect', (reason) => {

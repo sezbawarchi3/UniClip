@@ -50,6 +50,24 @@
       <h3>Connected devices (<span id="device-count">0</span>)</h3>
       <ul id="device-list"></ul>
 
+      <!-- Phase 2/3: send clipboard text to the other devices -->
+      <h3>Send to your other devices</h3>
+      <button id="sync-btn" class="btn btn--primary">Sync Clipboard</button>
+
+      <label for="clip-input" class="manual-label">Or type / paste text manually:</label>
+      <textarea id="clip-input" rows="4" placeholder="Text to send…"></textarea>
+      <button id="send-text-btn" class="btn">Send text box</button>
+      <p id="clip-status" class="status" role="status"></p>
+
+      <!-- Phase 2/3: text received from another device -->
+      <h3>Received</h3>
+      <p id="received-empty" class="hint">Nothing received yet.</p>
+      <div id="received-box" hidden>
+        <pre id="received-text"></pre>
+        <p id="received-note" class="hint"></p>
+        <button id="copy-received-btn" class="btn">Copy to my clipboard</button>
+      </div>
+
       <button id="leave-btn" class="btn btn--danger">Leave session</button>
     </section>
   </main>
