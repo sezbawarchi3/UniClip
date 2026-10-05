@@ -3,7 +3,8 @@ const http = require('http');
 const express = require('express');
 const { Server } = require('socket.io');
 const sessions = require('./sessions');
-const { isValidEntryId } = require('./history');
+const { isValidEntryId, DEFAULTS: HISTORY_LIMITS } = require('./history');
+
 
 const PORT = process.env.PORT || 3000;
 
@@ -11,7 +12,9 @@ const PORT = process.env.PORT || 3000;
 // we commented the max bytes because this now lives in history and can ONLY be accessed from there.
 const app = express();
 const server = http.createServer(app); // Socket.io needs the raw HTTP server
-const io = new Server(server);
+const MAX_MESSAGE_BYTES = Math.ceil(HISTORY_LIMITS.maxImageBytes / 3) * 4 + 256 * 1024;
+const io = new Server(server, { maxHttpBufferSize: MAX_MESSAGE_BYTES });
+
 
 
 // Serve everything inside /public (index.html, css, js).
@@ -157,12 +160,18 @@ io.on('connection', (socket) => {
         // gives the entry its seq number, and ignores duplicate ids.
         // WHO sent it comes from the server's own records, NOT from the payload,
         // so a browser cannot pretend to be another device.
+        // Images go through the very same path as text, so they get a seq number,
+        // are de-duplicated by id, and are broadcast with the same 'clip:added' event.
+        const isImage = payload.kind === 'image';
         const result = history.add({
             id: payload.id,
+            kind: isImage ? 'image' : 'text',
             text: payload.text,
+            image: isImage ? { dataUrl: payload.dataUrl, name: payload.name } : undefined,
             senderId: sessions.publicIdOf(device.deviceId),
             senderName: device.name,
         });
+
         if (!result.ok) {
             return reply({ ok: false, error: result.error });
         }
@@ -180,7 +189,10 @@ io.on('connection', (socket) => {
         io.to(code).emit('clip:added', { entry: result.entry, evicted: result.evicted });
 
         // Log only the SIZE, never the content: clipboard data is private.
-        console.log(`Clip #${result.entry.seq} in ${code} : ${Buffer.byteLength(result.entry.text, 'utf8')} bytes --> ${receivers} other device(s)`);
+            const loggedBytes = result.entry.kind === 'image'? result.entry.size
+            : Buffer.byteLength(result.entry.text, 'utf8');
+        console.log(`${result.entry.kind === 'image' ? 'Image' : 'Clip'} #${result.entry.seq} in ${code} : ${loggedBytes} bytes --> ${receivers} other device(s)`);
+
         reply({ ok: true, duplicate: false, receivers });
     });
 

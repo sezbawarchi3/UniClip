@@ -38,3 +38,39 @@ function makePreview(text, maxLength = 40) {
   if (chars.length <= maxLength) return oneLine;
   return chars.slice(0, maxLength - 1).join('') + '…';
 }
+
+// ---------- Image helpers (Phase 9) ----------
+
+// Formats we accept. Must match IMAGE_TYPES in server/history.js.
+// (SVG is excluded on purpose: it can carry scripts.)
+const IMAGE_EXTENSIONS = { 'image/png': 'png', 'image/jpeg': 'jpg', 'image/webp': 'webp', 'image/gif': 'gif' };
+const MAX_IMAGE_BYTES = 5 * 1024 * 1024; // 5 MB; the server enforces the same limit
+
+// 1536 -> "1.5 KB", 5242880 -> "5.0 MB"
+function formatBytes(bytes) {
+  if (!Number.isFinite(bytes) || bytes < 0) return '';
+  if (bytes < 1024) return `${bytes} B`;
+  if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
+  return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
+}
+
+// Only a base64 data URL of an allowed image type may ever reach an <img src>.
+// Anything else from the network (e.g. "javascript:...", "https://tracker/pixel.gif",
+// "data:image/svg+xml,...") is refused.
+function isSafeImageDataUrl(value) {
+  return typeof value === 'string'
+    && /^data:image\/(png|jpeg|webp|gif);base64,[A-Za-z0-9+/]+={0,2}$/.test(value);
+}
+
+// Turns a name from someone else's device into a safe download file name
+// that also ends with the right extension for the image's real type.
+function safeDownloadName(name, mime) {
+  const ext = IMAGE_EXTENSIONS[mime] || 'png';
+  let base = String(name ?? '')
+    .replace(/[\u0000-\u001f\u007f<>:"/\\|?*]/g, '')
+    .replace(/\.[A-Za-z0-9]{1,5}$/, '') // drop the old extension; we add the right one
+    .trim()
+    .slice(0, 80);
+  if (!base) base = 'uniclip-image';
+  return `${base}.${ext}`;
+}

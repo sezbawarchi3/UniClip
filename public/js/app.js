@@ -79,6 +79,15 @@ const historyEmpty = $('history-empty');
 const historyList = $('history-list');
 const clearHistoryBtn = $('clear-history-btn');
 
+const imageDrop = $('image-drop');
+const imageInput = $('image-input');
+const imageModal = $('image-modal');
+const modalImg = $('modal-img');
+const modalCaption = $('modal-caption');
+const modalDownloadBtn = $('modal-download-btn');
+const modalCloseBtn = $('modal-close-btn');
+const MAX_IMAGES_PER_BATCH = 5; // how many images one drop / file selection may send
+
 
 // 3. UI HELPERS
 
@@ -106,6 +115,11 @@ function showSession(code) {
  
 // Same alphabet/length the server uses to generate pairing codes.
 const CODE_PATTERN = /^[ABCDEFGHJKMNPQRSTUVWXYZ23456789]{6}$/;
+
+function buildJoinUrl(code) {
+  return `${window.location.origin}/join?code=${encodeURIComponent(code)}`;
+}
+
 
 
 function renderQr(code) {
@@ -225,8 +239,23 @@ function isValidEntry(e) {
     && typeof e.senderId === 'string'
     && typeof e.senderName === 'string'
     && Number.isInteger(e.seq)
-    && Number.isFinite(e.timestamp);
+    && Number.isFinite(e.timestamp)
+    && isValidEntryKind(e);
 }
+
+function isValidEntryKind(e) {
+  if (e.kind === undefined || e.kind === 'text') return true;
+  return e.kind === 'image'
+    && isSafeImageDataUrl(e.dataUrl)
+    && typeof e.name === 'string'
+    && Number.isFinite(e.size);
+}
+ 
+// The image's type, read from the data URL itself (not from a field a peer could fake).
+function imageMimeOf(entry) {
+  return entry.dataUrl.slice(5, entry.dataUrl.indexOf(';'));
+}
+
  
 // Add one entry. Returns false if we already had it (a duplicate), true if it is new.
 function addEntry(entry) {
@@ -234,6 +263,18 @@ function addEntry(entry) {
   entries.set(entry.id, entry);
   return true;
 }
+
+const itemCache = new Map(); // entry id -> <li>
+ 
+function getEntryItem(entry) {
+  let li = itemCache.get(entry.id);
+  if (!li) {
+    li = makeEntryItem(entry);
+    itemCache.set(entry.id, li);
+  }
+  return li;
+}
+
  
 function removeEntries(ids) {
   for (const id of ids) entries.delete(id);
@@ -276,13 +317,25 @@ function makeEntryItem(entry) {
     badge.textContent = 'Link';
     meta.appendChild(badge);
   }
+
+    const isImage = entry.kind === 'image';
+  if (isImage) {
+    li.classList.add('entry--image');
+    const badge = document.createElement('span');
+    badge.className = 'entry__badge';
+    badge.textContent = 'Image';
+    meta.appendChild(badge);
+  }
+
  
   const who = entry.senderId === myPublicId ? 'you' : entry.senderName;
   meta.append(`${who} · ${formatTime(entry.timestamp)}`);
  
   const body = document.createElement('div');
-  body.className = 'entry__text';
-  if (safeUrl) {
+  body.className = isImage ? 'entry__image' : 'entry__text';
+  if (isImage) {
+    body.appendChild(makeImagePreview(entry)); // <img> inside a button
+  } else if (safeUrl) {
     const link = document.createElement('a');
     link.href = safeUrl;
     link.target = '_blank';
@@ -292,6 +345,7 @@ function makeEntryItem(entry) {
   } else {
     body.textContent = entry.text;
   }
+
  
   const actions = document.createElement('div');
   actions.className = 'entry__actions';
@@ -314,12 +368,18 @@ function makeEntryItem(entry) {
 // Copy an old entry back to this device's clipboard (a click = allowed by the browser).
 async function copyEntry(entry) {
   try {
+    if (entry.kind === 'image') {
+      await copyImageToClipboard(entry);
+      setClipStatus(`Copied image: ${entry.name}`);
+      return;
+    }
     await navigator.clipboard.writeText(entry.text);
     setClipStatus(`Copied: ${makePreview(entry.text)}`);
   } catch (err) {
     setClipStatus('Copy failed. Check clipboard permission, or select the text and press Ctrl+C.', true);
   }
 }
+
  
 // Ask the server to delete one entry. We do NOT remove it from the screen here:
 // the server answers by broadcasting 'clip:deleted' to everyone (us included),
@@ -366,9 +426,16 @@ const socket = io(); // connects to the server that served this page
 
 socket.on('connect', () => {
   setStatus('connected', 'Connected');
-  // If we were in a session before a drop/server restart, try to get back in.
-  // (A taste of Phase 6, since it prevents confusing stale screens.)
-  if (currentCode) joinSession(currentCode);
+  if (currentCode) {
+    joinSession(currentCode);
+  } else if (pendingJoinCode) {
+    // Arrived through a scanned QR code / join link: join automatically.
+    const code = pendingJoinCode;
+    pendingJoinCode = null; // only once; later reconnects use currentCode
+    homeError.textContent = '';
+    joinSession(code);
+  }
+
 });
 
 socket.on('disconnect', () => {
@@ -397,10 +464,17 @@ socket.on('clip:added', async (data) => {
  
   // Auto-copy only NEW items that came from ANOTHER device.
   if (!isNew || entry.senderId === myPublicId) return;
+  if (!isNew || entry.senderId === myPublicId) return;
   try {
-    await navigator.clipboard.writeText(entry.text);
-    setClipStatus(`Copied from ${entry.senderName}: ${makePreview(entry.text)}`);
-  } catch (err) {
+    if (entry.kind === 'image') {
+      await copyImageToClipboard(entry); // never writeText('') over the user's clipboard
+      setClipStatus(`Copied image from ${entry.senderName}: ${entry.name}`);
+    } else {
+      await navigator.clipboard.writeText(entry.text);
+      setClipStatus(`Copied from ${entry.senderName}: ${makePreview(entry.text)}`);
+    }
+  }
+  catch (err) {
     // Blocked (tab not focused, Safari needs a click, no permission, or no HTTPS).
     setClipStatus(`New item from ${entry.senderName}. Auto-copy was blocked: press Copy on it below.`, true);
   }
@@ -536,5 +610,215 @@ leaveBtn.addEventListener('click', () => {
   showHome();
 });
 
+function readFileAsDataUrl(file) {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => resolve(reader.result);
+    reader.onerror = () => reject(reader.error || new Error('read-failed'));
+    reader.readAsDataURL(file);
+  });
+}
+ 
+// Returns an error string, or '' if this file may be sent.
+function checkImageFile(file) {
+  if (!IMAGE_EXTENSIONS[file.type]) return 'Unsupported image type. Use PNG, JPEG, WEBP or GIF.';
+  if (file.size > MAX_IMAGE_BYTES) return `Image is too large (limit is ${formatBytes(MAX_IMAGE_BYTES)}).`;
+  if (file.size === 0) return 'That image is empty.';
+  return '';
+}
+ 
+// Same ack-based path as text: the server assigns seq, de-dupes by id and broadcasts 'clip:added'.
+function emitImage(dataUrl, name) {
+  return new Promise((resolve) => {
+    socket.timeout(15000).emit('clip:send', { id: generateId(), kind: 'image', dataUrl, name }, (err, res) => {
+      if (err) return resolve({ ok: false, error: 'The server did not respond. Try again.' });
+      resolve(res);
+    });
+  });
+}
+ 
+async function sendImageFiles(fileList) {
+  if (!currentCode) return setClipStatus('Join a session first.', true);
+  if (!socket.connected) return setClipStatus('You are offline. Wait for the connection to come back.', true);
+ 
+  let files = Array.from(fileList).filter((f) => f.type.startsWith('image/'));
+  if (files.length === 0) return setClipStatus('No image found. Use PNG, JPEG, WEBP or GIF.', true);
+ 
+  let skipped = '';
+  if (files.length > MAX_IMAGES_PER_BATCH) {
+    skipped = ` (only the first ${MAX_IMAGES_PER_BATCH} were sent)`;
+    files = files.slice(0, MAX_IMAGES_PER_BATCH);
+  }
+ 
+  let sent = 0;
+  for (const file of files) {
+    const problem = checkImageFile(file);
+    if (problem) { setClipStatus(`${file.name || 'Image'}: ${problem}`, true); continue; }
+ 
+    setClipStatus(`Sending ${file.name || 'image'}…`);
+    try {
+      const dataUrl = await readFileAsDataUrl(file);
+      const res = await emitImage(dataUrl, file.name);
+      if (!res.ok) { setClipStatus(res.error, true); continue; }
+      sent++;
+    } catch (err) {
+      setClipStatus('Could not read that image file.', true);
+    }
+  }
+  if (sent > 0) setClipStatus(`Sent ${sent} image(s)${skipped}.`);
+}
+ 
+// ---------- Paste (Ctrl+V / Cmd+V) ----------
+ 
+document.addEventListener('paste', (e) => {
+  const items = e.clipboardData && e.clipboardData.items;
+  if (!items) return;
+ 
+  const files = [];
+  let hasText = false;
+  for (const item of items) {
+    if (item.kind === 'file' && item.type.startsWith('image/')) {
+      const f = item.getAsFile();
+      if (f) files.push(f);
+    } else if (item.kind === 'string' && item.type === 'text/plain') {
+      hasText = true;
+    }
+  }
+  if (files.length === 0) return; // plain text paste: leave the browser default alone
+ 
+  // Copying from Word/Excel puts BOTH text and an image on the clipboard. When the user
+  // is typing in a field, they want the text, so don't hijack it.
+  const t = e.target;
+  const typing = t && (t.tagName === 'TEXTAREA' || t.tagName === 'INPUT');
+  if (hasText && typing) return;
+ 
+  e.preventDefault();
+  if (sessionView.hidden) return; // not in a session: nothing to send to
+  sendImageFiles(files);
+});
+ 
+// ---------- Drag and drop ----------
+// Listening on document.body means a missed drop never makes the browser navigate to the image.
+ 
+const hasFiles = (e) => e.dataTransfer && Array.from(e.dataTransfer.types || []).includes('Files');
+let dragDepth = 0; // dragenter/dragleave fire for every child element, so count them
+ 
+document.body.addEventListener('dragenter', (e) => {
+  if (!hasFiles(e)) return;
+  e.preventDefault();
+  dragDepth++;
+  imageDrop.classList.add('dropzone--over');
+});
+ 
+document.body.addEventListener('dragover', (e) => {
+  if (!hasFiles(e)) return;
+  e.preventDefault(); // REQUIRED, otherwise the browser refuses the drop
+  e.dataTransfer.dropEffect = 'copy';
+});
+ 
+document.body.addEventListener('dragleave', (e) => {
+  if (!hasFiles(e)) return;
+  e.preventDefault();
+  dragDepth = Math.max(dragDepth - 1, 0);
+  if (dragDepth === 0) imageDrop.classList.remove('dropzone--over');
+});
+ 
+document.body.addEventListener('drop', (e) => {
+  if (!hasFiles(e)) return;
+  e.preventDefault();
+  dragDepth = 0;
+  imageDrop.classList.remove('dropzone--over');
+  if (sessionView.hidden) return;
+  sendImageFiles(e.dataTransfer.files);
+});
+ 
+// ---------- Click-to-choose ----------
+ 
+imageDrop.addEventListener('click', () => imageInput.click());
+imageDrop.addEventListener('keydown', (e) => {
+  if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); imageInput.click(); }
+});
+imageInput.addEventListener('change', () => {
+  sendImageFiles(imageInput.files);
+  imageInput.value = ''; // so choosing the same file again still fires 'change'
+});
+ 
+// ---------- History rendering helpers ----------
+ 
+// <button><img></button> + file name. Only validated data URLs ever reach src (see isValidEntry).
+function makeImagePreview(entry) {
+  const wrap = document.createElement('div');
+ 
+  const btn = document.createElement('button');
+  btn.type = 'button';
+  btn.className = 'entry__preview';
+  btn.setAttribute('aria-label', `Open ${entry.name}`);
+  btn.addEventListener('click', () => openImageModal(entry));
+ 
+  const img = document.createElement('img');
+  img.className = 'entry__img';
+  img.alt = entry.name;
+  img.loading = 'lazy';
+  img.src = entry.dataUrl;
+  btn.appendChild(img);
+ 
+  const caption = document.createElement('div');
+  caption.className = 'entry__filename';
+  caption.textContent = `${entry.name} · ${formatBytes(entry.size)}`;
+ 
+  wrap.append(btn, caption);
+  return wrap;
+}
+ 
+// ---------- Copy image to clipboard ----------
+ 
+// Browsers only reliably accept image/png in ClipboardItem, so other formats go through a canvas.
+async function dataUrlToPngBlob(dataUrl) {
+  if (dataUrl.startsWith('data:image/png')) return (await fetch(dataUrl)).blob();
+  const img = new Image();
+  img.src = dataUrl;
+  await img.decode();
+  const canvas = document.createElement('canvas');
+  canvas.width = img.naturalWidth;
+  canvas.height = img.naturalHeight;
+  canvas.getContext('2d').drawImage(img, 0, 0);
+  return new Promise((resolve, reject) =>
+    canvas.toBlob((b) => (b ? resolve(b) : reject(new Error('png-failed'))), 'image/png'));
+}
+ 
+async function copyImageToClipboard(entry) {
+  if (!navigator.clipboard || !window.ClipboardItem) throw new Error('image-clipboard-unsupported');
+  // Passing a Promise keeps Safari happy (it requires write() to start inside the user gesture).
+  await navigator.clipboard.write([new ClipboardItem({ 'image/png': dataUrlToPngBlob(entry.dataUrl) })]);
+}
+ 
+// ---------- Full-size preview modal ----------
+ 
+let modalEntry = null;
+ 
+function openImageModal(entry) {
+  modalEntry = entry;
+  modalImg.src = entry.dataUrl;
+  modalImg.alt = entry.name;
+  modalCaption.textContent = `${entry.name} · ${formatBytes(entry.size)}`;
+  if (typeof imageModal.showModal === 'function') imageModal.showModal();
+  else imageModal.setAttribute('open', '');
+}
+ 
+modalCloseBtn.addEventListener('click', () => imageModal.close());
+imageModal.addEventListener('click', (e) => { if (e.target === imageModal) imageModal.close(); }); // backdrop click
+imageModal.addEventListener('close', () => { modalImg.removeAttribute('src'); modalEntry = null; });
+ 
+modalDownloadBtn.addEventListener('click', () => {
+  if (!modalEntry) return;
+  const a = document.createElement('a');
+  a.href = modalEntry.dataUrl;
+  a.download = safeDownloadName(modalEntry.name, imageMimeOf(modalEntry));
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+});
+
+
 // Start on the home screen.
-showHome();
+showHome(initialError);

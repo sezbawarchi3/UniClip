@@ -8,7 +8,7 @@
 </head>
 <body>
   <header class="topbar">
-    <h1>📋 UniClip</h1>
+    <h1>UniClip</h1>
     <!-- Connection status: JS changes its text and colour -->
     <span id="status-badge" class="badge badge--connecting">Connecting…</span>
   </header>
@@ -67,6 +67,18 @@
       <label for="clip-input" class="manual-label">Or type / paste text manually:</label>
       <textarea id="clip-input" rows="4" placeholder="Text to send…"></textarea>
       <button id="send-text-btn" class="btn">Send text box</button>
+
+      <!-- Phase 9: send images (file picker, drag-and-drop, or paste with Ctrl/Cmd+V) -->
+      <p class="manual-label label">Or send an image:</p>
+      <div id="image-drop" class="dropzone" tabindex="0" role="button"
+           aria-label="Choose an image to send, or drop one here">
+        <span class="dropzone__title">Drop images here, click to choose, or paste (Ctrl+V)</span>
+        <span class="dropzone__hint">PNG, JPEG, WEBP or GIF · up to 5 MB each</span>
+      </div>
+      <!-- Hidden: the dropzone above opens it. "accept" filters the picker to image types. -->
+      <input id="image-input" type="file" multiple hidden
+             accept="image/png,image/jpeg,image/webp,image/gif" />
+
       <p id="clip-status" class="status" role="status"></p>
 
       <!-- Phase 4/5: shared clipboard history (newest first) -->
@@ -80,6 +92,17 @@
       <button id="leave-btn" class="btn btn--danger">Leave session</button>
     </section>
   </main>
+
+  <!-- Phase 9: full-size image preview. A native <dialog> gives us Esc-to-close,
+       a focus trap and a dimmed backdrop for free. -->
+  <dialog id="image-modal" class="modal" aria-label="Image preview">
+    <img id="modal-img" class="modal__img" alt="" />
+    <p id="modal-caption" class="modal__caption"></p>
+    <div class="modal__actions">
+      <button id="modal-download-btn" type="button" class="btn btn--primary">Download</button>
+      <button id="modal-close-btn" type="button" class="btn">Close</button>
+    </div>
+  </dialog>
 
   <!-- This file is provided automatically by the Socket.io server -->
   <script src="/socket.io/socket.io.js"></script>

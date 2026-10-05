@@ -1,171 +1,425 @@
-/* public/css/styles.css */
+/* public/css/styles.css
+   UniClip: warm stone, slate charcoal, terracotta, muted sage.
+   Serif for reading, monospace for anything that is "machine" (codes, labels, clips). */
+
+:root {
+  /* surfaces */
+  --paper:      #efe9df;   /* warm stone, page background */
+  --card:       #faf6ee;   /* off-white, cards */
+  --sunk:       #f1ebdf;   /* recessed areas (inputs, entries) */
+  --line:       #d9cfbe;   /* hairlines */
+  --line-soft:  #e6ddcd;
+
+  /* ink */
+  --ink:        #2d2b29;   /* slate charcoal */
+  --ink-soft:   #5f5a52;
+  --ink-faint:  #8a8376;
+
+  /* accents */
+  --terracotta:      #b4563a;
+  --terracotta-deep: #8f4129;
+  --terracotta-wash: #f0ddd2;
+  --sage:            #6f8265;
+  --sage-deep:       #55674c;
+  --sage-wash:       #dfe5d6;
+  --slate:           #4f5b63;
+  --ochre:           #b38635;
+  --oxblood:         #8a3324;
+
+  /* warm, low-contrast shadows (never pure black) */
+  --shadow-card: 0 1px 0 rgba(255, 255, 255, 0.7) inset,
+                 0 1px 2px rgba(80, 56, 32, 0.10),
+                 0 14px 28px -16px rgba(80, 56, 32, 0.28);
+  --shadow-btn:  0 1px 0 rgba(255, 255, 255, 0.6) inset, 0 1px 2px rgba(80, 56, 32, 0.12);
+
+  --serif: "Iowan Old Style", "Palatino Linotype", Palatino, "Book Antiqua", Georgia, serif;
+  --mono:  ui-monospace, "SF Mono", "JetBrains Mono", "IBM Plex Mono", Menlo, Consolas, monospace;
+}
+
 * { box-sizing: border-box; }
 
 body {
   margin: 0;
-  font-family: system-ui, -apple-system, "Segoe UI", sans-serif;
-  background: #f4f6f8;
-  color: #1f2933;
+  font-family: var(--serif);
+  font-size: 1rem;
+  line-height: 1.5;
+  background: var(--paper);
+  color: var(--ink);
 }
 
 /* Makes the HTML "hidden" attribute always win over display rules */
 [hidden] { display: none !important; }
 
+/* ---- Top bar ---- */
 .topbar {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 12px 16px;
-  background: #fff;
-  border-bottom: 1px solid #e1e5ea;
+  padding: 14px 20px;
+  background: var(--card);
+  border-bottom: 1px solid var(--line);
+  box-shadow: 0 6px 14px -12px rgba(80, 56, 32, 0.35);
 }
-.topbar h1 { margin: 0; font-size: 1.1rem; }
+.topbar h1 {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin: 0;
+  font-size: 1.25rem;
+  font-weight: 600;
+  letter-spacing: 0.01em;
+}
+.logo { width: 22px; height: 22px; color: var(--terracotta); flex: none; }
 
-main { max-width: 480px; margin: 24px auto; padding: 0 16px; }
+main { max-width: 500px; margin: 32px auto; padding: 0 16px 40px; }
 
+/* ---- Cards ---- */
 .card {
-  background: #fff;
-  border-radius: 12px;
-  padding: 20px;
-  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.08);
+  background: var(--card);
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  padding: 26px 24px;
+  box-shadow: var(--shadow-card);
 }
-.card h2 { margin-top: 0; }
+.card h2 {
+  margin: 0 0 18px;
+  font-size: 1.5rem;
+  font-weight: 600;
+  letter-spacing: -0.005em;
+}
+.card h3 {
+  margin: 28px 0 10px;
+  padding-top: 14px;
+  border-top: 1px solid var(--line-soft);
+  font-family: var(--mono);
+  font-size: 0.72rem;
+  font-weight: 600;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--ink-soft);
+}
 
+/* ---- Buttons ---- */
 .btn {
   width: 100%;
-  padding: 12px;
-  font-size: 1rem;
-  border: 1px solid #c5ccd3;
-  border-radius: 8px;
-  background: #fff;
+  padding: 11px 14px;
+  font-family: var(--mono);
+  font-size: 0.85rem;
+  letter-spacing: 0.03em;
+  color: var(--ink);
+  border: 1px solid var(--line);
+  border-bottom-color: #c9bda8;
+  border-radius: 4px;
+  background: #fffdf8;
+  box-shadow: var(--shadow-btn);
   cursor: pointer;
+  transition: background 0.12s, transform 0.06s, box-shadow 0.12s;
 }
-.btn:hover { background: #f0f3f6; }
-.btn--primary { background: #2563eb; border-color: #2563eb; color: #fff; }
-.btn--primary:hover { background: #1d4ed8; }
-.btn--danger { color: #b91c1c; border-color: #f0b4b4; margin-top: 16px; }
+.btn:hover { background: #f6f0e4; }
+.btn:active { transform: translateY(1px); box-shadow: none; }
+.btn:focus-visible { outline: 2px solid var(--terracotta); outline-offset: 2px; }
+.btn:disabled { opacity: 0.55; cursor: default; }
 
-.divider { text-align: center; color: #7b8794; margin: 16px 0; }
+.btn--primary {
+  background: var(--terracotta);
+  border-color: var(--terracotta-deep);
+  border-bottom-color: #74331f;
+  color: #fff8f0;
+  box-shadow: 0 1px 0 rgba(255, 255, 255, 0.18) inset, 0 2px 0 #74331f;
+}
+.btn--primary:hover { background: var(--terracotta-deep); }
+.btn--primary:active { box-shadow: 0 1px 0 rgba(255, 255, 255, 0.12) inset; }
 
-label { display: block; margin-bottom: 6px; font-size: 0.9rem; }
+.btn--danger { color: var(--oxblood); border-color: #d9b8ad; margin-top: 22px; }
+.btn--danger:hover { background: #f6e4dd; }
+
+.btn--small { width: auto; padding: 6px 12px; font-size: 0.75rem; margin-top: 0; }
+
+/* ---- Divider with hairlines either side ---- */
+.divider {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin: 20px 0;
+  font-family: var(--mono);
+  font-size: 0.72rem;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--ink-faint);
+}
+.divider::before, .divider::after { content: ""; flex: 1; height: 1px; background: var(--line); }
+
+/* ---- Forms ---- */
+label {
+  display: block;
+  margin-bottom: 6px;
+  font-family: var(--mono);
+  font-size: 0.72rem;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--ink-soft);
+}
 input[type="text"] {
   width: 100%;
   padding: 12px;
   margin-bottom: 10px;
-  font-size: 1.2rem;
-  letter-spacing: 0.2em;
+  font-family: var(--mono);
+  font-size: 1.15rem;
+  letter-spacing: 0.3em;
   text-transform: uppercase;
   text-align: center;
-  border: 1px solid #c5ccd3;
-  border-radius: 8px;
+  color: var(--ink);
+  background: var(--sunk);
+  border: 1px solid var(--line);
+  border-radius: 4px;
+  box-shadow: inset 0 1px 3px rgba(80, 56, 32, 0.12);
 }
-
-.error { color: #b91c1c; min-height: 1.2em; margin: 12px 0 0; }
-
-.label { margin: 0; font-size: 0.85rem; color: #52606d; }
-.code {
-  font-size: 2.2rem;
-  font-weight: 700;
-  letter-spacing: 0.3em;
-  text-align: center;
-  padding: 12px;
-  margin: 6px 0;
-  background: #eef2ff;
-  border-radius: 8px;
-  font-family: ui-monospace, Consolas, monospace;
-}
-.hint { color: #7b8794; font-size: 0.85rem; margin-top: 4px; }
-
-#device-list { padding-left: 20px; }
-#device-list li { margin: 6px 0; }
-.you { color: #2563eb; font-weight: 600; }
-
-/* Connection badge colours */
-.badge { font-size: 0.8rem; padding: 4px 10px; border-radius: 999px; color: #fff; }
-.badge--connecting   { background: #d69e2e; }
-.badge--connected    { background: #2f9e44; }
-.badge--reconnecting { background: #dd6b20; }
-
-/* ---- Clipboard UI (Phase 2/3) ---- */
-.manual-label { margin-top: 16px; }
+input[type="text"]::placeholder { color: var(--ink-faint); letter-spacing: 0.12em; }
+input[type="text"]:focus,
+textarea:focus { outline: 2px solid var(--terracotta); outline-offset: 1px; border-color: var(--terracotta); }
 
 textarea {
   width: 100%;
-  padding: 10px;
+  padding: 10px 12px;
   margin-bottom: 10px;
-  font: inherit;
-  border: 1px solid #c5ccd3;
-  border-radius: 8px;
+  font-family: var(--mono);
+  font-size: 0.88rem;
+  color: var(--ink);
+  background: var(--sunk);
+  border: 1px solid var(--line);
+  border-radius: 4px;
+  box-shadow: inset 0 1px 3px rgba(80, 56, 32, 0.12);
   resize: vertical;
 }
 
-.status { min-height: 1.2em; margin: 8px 0 0; font-size: 0.9rem; color: #52606d; }
-.status--error { color: #b91c1c; }
+.error { color: var(--oxblood); min-height: 1.2em; margin: 12px 0 0; font-size: 0.92rem; }
 
-/* ---- History (Phase 4/5) ---- */
-.history-header { display: flex; align-items: center; justify-content: space-between; margin-top: 16px; }
-.history-header h3 { margin: 0; }
-.btn--small { width: auto; padding: 6px 12px; font-size: 0.85rem; margin-top: 0; }
+.label {
+  margin: 0;
+  font-family: var(--mono);
+  font-size: 0.72rem;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--ink-soft);
+}
+.hint { color: var(--ink-faint); font-size: 0.88rem; font-style: italic; margin-top: 4px; }
 
-#history-list { list-style: none; padding: 0; margin: 8px 0 0; }
+/* ---- Pairing code: stamped on a label ---- */
+.code {
+  font-family: var(--mono);
+  font-size: 2.1rem;
+  font-weight: 700;
+  letter-spacing: 0.32em;
+  text-indent: 0.32em;       /* balances the trailing letter-spacing so it centres visually */
+  text-align: center;
+  padding: 14px 12px;
+  margin: 8px 0 6px;
+  color: var(--terracotta-deep);
+  background: var(--terracotta-wash);
+  border: 1.5px dashed #c98b72;
+  border-radius: 4px;
+}
+
+/* ---- Devices ---- */
+#device-list { list-style: none; padding: 0; margin: 0; }
+#device-list li {
+  position: relative;
+  margin: 0;
+  padding: 8px 0 8px 18px;
+  border-bottom: 1px dotted var(--line);
+  font-size: 0.95rem;
+}
+#device-list li:last-child { border-bottom: none; }
+#device-list li::before {
+  content: "";
+  position: absolute;
+  left: 2px; top: 50%;
+  width: 7px; height: 7px;
+  margin-top: -3px;
+  border-radius: 50%;
+  background: var(--sage);
+}
+.you { color: var(--terracotta-deep); font-family: var(--mono); font-size: 0.78rem; }
+
+/* ---- Connection badge ---- */
+.badge {
+  font-family: var(--mono);
+  font-size: 0.72rem;
+  letter-spacing: 0.06em;
+  padding: 4px 11px;
+  border-radius: 999px;
+  color: #fffaf2;
+}
+.badge--connecting   { background: var(--ochre); }
+.badge--connected    { background: var(--sage-deep); }
+.badge--reconnecting { background: var(--terracotta); }
+
+/* ---- Clipboard UI ---- */
+.manual-label { margin-top: 18px; }
+#sync-btn + .manual-label { margin-top: 18px; }
+
+.status { min-height: 1.2em; margin: 10px 0 0; font-family: var(--mono); font-size: 0.78rem; color: var(--ink-soft); }
+.status--error { color: var(--oxblood); }
+
+/* ---- History ---- */
+.history-header { display: flex; align-items: center; justify-content: space-between; }
+.history-header h3 { flex: 1; margin-right: 12px; }
+
+#history-list { list-style: none; padding: 0; margin: 10px 0 0; }
 
 .entry {
-  padding: 10px;
-  margin-bottom: 8px;
-  border: 1px solid #e1e5ea;
-  border-radius: 8px;
-  background: #fafbfc;
+  padding: 12px 14px;
+  margin-bottom: 10px;
+  border: 1px solid var(--line);
+  border-left: 3px solid var(--line);
+  border-radius: 4px;
+  background: #fffdf8;
+  box-shadow: 0 1px 2px rgba(80, 56, 32, 0.07);
 }
-.entry--link { border-left: 4px solid #2563eb; }
+.entry--link  { border-left-color: var(--slate); }
+.entry--image { border-left-color: var(--sage); }
 
-.entry__meta { font-size: 0.8rem; color: #7b8794; margin-bottom: 4px; }
+.entry__meta { font-family: var(--mono); font-size: 0.72rem; color: var(--ink-faint); margin-bottom: 6px; }
 .entry__badge {
   display: inline-block;
-  margin-right: 6px;
-  padding: 1px 6px;
-  border-radius: 999px;
-  background: #2563eb;
-  color: #fff;
-  font-size: 0.7rem;
+  margin-right: 8px;
+  padding: 1px 7px;
+  border-radius: 3px;
+  background: var(--slate);
+  color: #f6f1e8;
+  font-size: 0.66rem;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
 }
+.entry--image .entry__badge { background: var(--sage-deep); }
 
 .entry__text {
+  font-family: var(--mono);
+  font-size: 0.86rem;
   white-space: pre-wrap;   /* keep line breaks, but wrap long lines */
   word-break: break-word;
   max-height: 7.5em;       /* long text scrolls instead of stretching the page */
   overflow: auto;
 }
+.entry__text a { color: var(--slate); text-decoration-color: var(--terracotta); text-underline-offset: 3px; }
+.entry__text a:hover { color: var(--terracotta-deep); }
 
-.entry__actions { display: flex; gap: 8px; margin-top: 8px; }
-.entry__actions .btn { width: auto; padding: 6px 12px; font-size: 0.85rem; }
+.entry__actions { display: flex; gap: 8px; margin-top: 10px; }
+.entry__actions .btn { width: auto; padding: 5px 12px; font-size: 0.74rem; margin-top: 0; }
 
-/* ---- QR code join (shown under the pairing code) ---- */
+/* ---- Image sync ---- */
+.dropzone {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  align-items: center;
+  padding: 22px 14px;
+  text-align: center;
+  color: var(--ink-soft);
+  border: 1.5px dashed #bfb29c;
+  border-radius: 4px;
+  background: var(--sunk);
+  cursor: pointer;
+  transition: background 0.15s, border-color 0.15s, color 0.15s;
+}
+.dropzone:hover,
+.dropzone:focus-visible { border-color: var(--terracotta); background: var(--terracotta-wash); color: var(--terracotta-deep); outline: none; }
+.dropzone--over { border-color: var(--terracotta); border-style: solid; background: var(--terracotta-wash); color: var(--terracotta-deep); }
+.dropzone__icon { width: 26px; height: 26px; margin-bottom: 4px; }
+.dropzone__title { font-size: 0.98rem; color: var(--ink); }
+.dropzone__hint { font-family: var(--mono); font-size: 0.7rem; letter-spacing: 0.04em; color: var(--ink-faint); }
+
+/* The preview is a <button> so keyboard users can open it too. */
+.entry__preview {
+  display: block;
+  width: 100%;
+  padding: 0;
+  margin: 0;
+  border: 1px solid var(--line);
+  border-radius: 3px;
+  cursor: zoom-in;
+  overflow: hidden;
+  /* soft stone checkerboard so transparent PNGs / GIFs are visible */
+  background-color: #fffdf8;
+  background-image:
+    linear-gradient(45deg, #ece4d5 25%, transparent 25%, transparent 75%, #ece4d5 75%),
+    linear-gradient(45deg, #ece4d5 25%, transparent 25%, transparent 75%, #ece4d5 75%);
+  background-size: 16px 16px;
+  background-position: 0 0, 8px 8px;
+}
+.entry__preview:focus-visible { outline: 2px solid var(--terracotta); outline-offset: 2px; }
+.entry__img {
+  display: block;
+  max-width: 100%;      /* never wider than the card... */
+  max-height: 260px;    /* ...and never a screen-filling poster */
+  width: auto;
+  height: auto;
+  margin: 0 auto;
+  object-fit: contain;
+}
+.entry__filename {
+  margin-top: 6px;
+  font-family: var(--mono);
+  font-size: 0.72rem;
+  color: var(--ink-soft);
+  word-break: break-all;
+}
+
+.modal {
+  width: min(96vw, 960px);
+  max-height: 96vh;
+  padding: 14px;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  background: var(--card);
+  color: inherit;
+  box-shadow: 0 24px 60px -20px rgba(45, 30, 18, 0.55);
+}
+.modal::backdrop { background: rgba(45, 38, 32, 0.68); }
+.modal__img {
+  display: block;
+  max-width: 100%;
+  max-height: calc(96vh - 130px);
+  width: auto;
+  height: auto;
+  margin: 0 auto;
+  object-fit: contain;
+}
+.modal__caption { margin: 10px 0; text-align: center; font-family: var(--mono); font-size: 0.75rem; color: var(--ink-soft); word-break: break-all; }
+.modal__actions { display: flex; gap: 8px; justify-content: center; }
+.modal__actions .btn { width: auto; min-width: 110px; }
+
+/* ---- QR code join ---- */
 .qr { text-align: center; margin-top: 4px; }
-.qr .label { font-weight: 600; color: #1f2933; }
 
+/* Kept pure black on white inside a quiet-zone frame: scanners need the contrast. */
 .qr__canvas {
   display: block;
   width: 100%;
   max-width: 200px;      /* never bigger than 200px on desktop... */
   height: auto;          /* ...and shrinks with the card on narrow phones */
   aspect-ratio: 1 / 1;
-  margin: 8px auto;
-  padding: 8px;
+  margin: 10px auto;
+  padding: 10px;
   background: #fff;
-  border: 1px solid #e1e5ea;
-  border-radius: 12px;
+  border: 1px solid var(--line);
+  border-radius: 4px;
+  box-shadow: 0 1px 2px rgba(80, 56, 32, 0.12), 0 10px 20px -14px rgba(80, 56, 32, 0.35);
   image-rendering: pixelated; /* keep the squares crisp when scaled */
 }
 
 .qr__warning {
-  color: #92400e;
-  background: #fef3c7;
-  border-radius: 8px;
+  color: #6e4a14;
+  background: #f1e3c2;
+  border-left: 3px solid var(--ochre);
+  border-radius: 3px;
   padding: 8px 10px;
   text-align: left;
+  font-style: normal;
 }
 
 @media (max-width: 380px) {
-  .code { font-size: 1.8rem; letter-spacing: 0.2em; }
+  .card { padding: 20px 16px; }
+  .code { font-size: 1.6rem; letter-spacing: 0.22em; text-indent: 0.22em; }
   .qr__canvas { max-width: 170px; }
 }
