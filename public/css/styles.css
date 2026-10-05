@@ -138,3 +138,34 @@ textarea {
 
 .entry__actions { display: flex; gap: 8px; margin-top: 8px; }
 .entry__actions .btn { width: auto; padding: 6px 12px; font-size: 0.85rem; }
+
+/* ---- QR code join (shown under the pairing code) ---- */
+.qr { text-align: center; margin-top: 4px; }
+.qr .label { font-weight: 600; color: #1f2933; }
+
+.qr__canvas {
+  display: block;
+  width: 100%;
+  max-width: 200px;      /* never bigger than 200px on desktop... */
+  height: auto;          /* ...and shrinks with the card on narrow phones */
+  aspect-ratio: 1 / 1;
+  margin: 8px auto;
+  padding: 8px;
+  background: #fff;
+  border: 1px solid #e1e5ea;
+  border-radius: 12px;
+  image-rendering: pixelated; /* keep the squares crisp when scaled */
+}
+
+.qr__warning {
+  color: #92400e;
+  background: #fef3c7;
+  border-radius: 8px;
+  padding: 8px 10px;
+  text-align: left;
+}
+
+@media (max-width: 380px) {
+  .code { font-size: 1.8rem; letter-spacing: 0.2em; }
+  .qr__canvas { max-width: 170px; }
+}

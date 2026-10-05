@@ -47,6 +47,7 @@ const deviceName = guessDeviceName(deviceId);
 // 2. STATE + DOM REFERENCES
 
 let currentCode = null; // the session we're in (null = not in one)
+let initialError = '';   // message to show on the home screen at startup (e.g. bad join link)
 
 const $ = (id) => document.getElementById(id);
 const homeView = $('home-view');
@@ -60,6 +61,10 @@ const sessionCode = $('session-code');
 const deviceCount = $('device-count');
 const deviceList = $('device-list');
 const leaveBtn = $('leave-btn');
+const qrBox = $('qr-box');
+const qrCanvas = $('qr-canvas');
+const qrWarning = $('qr-warning');
+
 
 //REPLICATING THE CLIP LENGTH FROM THE SERVER
 const MAX_CLIP_BYTES = 100 * 1024; // 100 KB
@@ -94,7 +99,89 @@ function showSession(code) {
   sessionView.hidden = false;
   homeError.textContent = '';
   sessionCode.textContent = code;
+  renderQr(code);
 }
+
+//--------------------QR code: build + render the join link---------------------
+ 
+// Same alphabet/length the server uses to generate pairing codes.
+const CODE_PATTERN = /^[ABCDEFGHJKMNPQRSTUVWXYZ23456789]{6}$/;
+
+
+function renderQr(code) {
+  // If the QR library failed to load (offline / CDN blocked), hide the QR section.
+  // The typed pairing code keeps working either way.
+  if (typeof qrcode !== 'function') {
+    qrBox.hidden = true;
+    return;
+  }
+
+  const qr = qrcode(0, 'M'); // type 0 = pick the smallest size that fits, 'M' = medium error correction
+  qr.addData(buildJoinUrl(code));
+  qr.make(); // generaing the qrcode
+
+  //canvas drawing constraints
+  const modules = qr.getModuleCount();
+  const quiet = 4;   // the white "quiet zone" border scanners need
+  const scale = 8;   // pixels per QR square (the CSS scales the canvas down for small screens)
+  const size = (modules + quiet * 2) * scale;
+
+  qrCanvas.width = size;
+  qrCanvas.height = size;
+  const ctx = qrCanvas.getContext('2d');
+  ctx.fillStyle = '#ffffff';
+  ctx.fillRect(0, 0, size, size);
+  ctx.fillStyle = '#000000';
+  for (let row = 0; row < modules; row++) {
+    for (let col = 0; col < modules; col++) {
+      if (qr.isDark(row, col)) {
+        ctx.fillRect((col + quiet) * scale, (row + quiet) * scale, scale, scale);
+      }
+    }
+  }
+
+
+  const host = window.location.hostname;
+  const isLocal = host === 'localhost' || host === '127.0.0.1' || host === '[::1]';
+  qrWarning.hidden = !isLocal;
+  if (isLocal) {
+    qrWarning.textContent =
+      'You opened UniClip via "localhost", which other devices cannot reach. ' +
+      'Open it using this computer\'s network address (e.g. http://192.168.x.x:3000) so the QR code works on your phone.';
+  }
+  qrBox.hidden = false;
+}
+
+
+//--------------------Join link: read ?code= from the URL---------------------
+ 
+// If we landed here from a scanned QR code (/join?code=K7M2QX), remember the code.
+// We join as soon as the socket is connected (see the 'connect' handler below).
+let pendingJoinCode = null;
+
+
+(function readJoinCodeFromUrl() {
+  const raw = params.get('code');
+  if (raw === null) return;
+ 
+  const code = raw.trim().toUpperCase();
+ 
+  // Remove ?code= from the address bar so a refresh doesn't re-join and the code
+  // doesn't linger in the browser history. Keep other params such as ?as=.
+  params.delete('code');
+  const query = params.toString();
+  history.replaceState(null, '', '/' + (query ? `?${query}` : ''));
+ 
+  if (!CODE_PATTERN.test(code)) {
+    // Shown once showHome() runs at the bottom of this file.
+    initialError = 'That join link has an invalid pairing code. Type the code instead.';
+    return;
+  }
+  codeInput.value = code;  // pre-fill the field: if auto-join fails the user can still fix/retry
+  pendingJoinCode = code;
+})();
+
+
 
 function renderDevices(devices) {
   deviceCount.textContent = devices.length;

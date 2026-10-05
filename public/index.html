@@ -47,6 +47,16 @@
       <div id="session-code" class="code">------</div>
       <p class="hint">Enter this code on your other device to pair.</p>
 
+      <!-- QR code: a scannable shortcut for the same code (filled in by app.js) -->
+      <div id="qr-box" class="qr">
+        <div class="divider">or</div>
+        <p class="label">Scan to join</p>
+        <canvas id="qr-canvas" class="qr__canvas" role="img"
+                aria-label="QR code that joins this session"></canvas>
+        <p class="hint">Point your phone's camera at this code.</p>
+        <p id="qr-warning" class="hint qr__warning" hidden></p>
+      </div>
+
       <h3>Connected devices (<span id="device-count">0</span>)</h3>
       <ul id="device-list"></ul>
 
@@ -73,6 +83,8 @@
 
   <!-- This file is provided automatically by the Socket.io server -->
   <script src="/socket.io/socket.io.js"></script>
+  <!-- Small, dependency-free QR generator (the plain-JS equivalent of qrcode.react) -->
+  <script src="https://cdn.jsdelivr.net/npm/qrcode-generator@1.4.4/qrcode.js"></script>
   <script src="js/utils.js"></script>
   <script src="js/app.js"></script>
 </body>

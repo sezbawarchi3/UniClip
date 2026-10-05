@@ -17,6 +17,14 @@ const io = new Server(server);
 // Serve everything inside /public (index.html, css, js).
 app.use(express.static(path.join(__dirname, '..', 'public')));
 
+// QR codes point at /join?code=XXXXXX. There is no separate join page: we serve the
+// normal app and let public/js/app.js read ?code= from the URL and join the session.
+app.get('/join', (req, res) => {
+    res.sendFile(path.join(__dirname, '..', 'public', 'index.html'));
+});
+ 
+
+
 // ---------- Helpers ----------
 
 const cleanName = (raw) => {
