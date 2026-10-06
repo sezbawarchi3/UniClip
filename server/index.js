@@ -243,6 +243,6 @@ io.on('connection', (socket) => {
 // FIXED: Moved server.listen OUTSIDE of io.on so it executes at app startup
 console.log('Attempting to start server on port:', PORT);
 
-server.listen(PORT, () => {
+server.listen(PORT, '0.0.0.0', () => {
     console.log(`Server running at http://localhost:${PORT}`);
 });
